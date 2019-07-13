@@ -38,24 +38,23 @@ byte print_data[6400];
 int print_data_index;
 bool drawing_print_data = false;
 
+int y_scroll;
+
 void draw_data() {
+  GO.lcd.clear();
   int i = 0;
   while (i < print_data_index-1){
     byte byte_1 = print_data[i];
     byte byte_2 = print_data[i+1];
     int tile_col = (i/2/8)%20;
-    int tile_row = i/(20*2*8);
+    int tile_row = i/(20*2*8)-y_scroll;
 
     int y_tile_pos = i/2%8;
     
     int j = 7;
     while ( j >= 0 ){
         int x_tile_pos = j;
-        //print_byte(byte_1);
-        //print_byte(byte_2);        
-        //byte color_index = (byte_1&1) + (byte_2&1)*2;
-        //print_byte(color_index);  
-        
+
         uint32_t pixel_color = palette[(byte_1&1) + (byte_2&1)*2];
         GO.lcd.drawRect((x_tile_pos+tile_col*8)*2, (y_tile_pos+tile_row*8)*2, 2, 2, pixel_color);
         byte_1 >>= 1;
@@ -65,7 +64,7 @@ void draw_data() {
     i += 2;
   }
   drawing_print_data = false;
-  print_data_index = 0;
+  //print_data_index = 0;
 }
 
 
@@ -116,7 +115,9 @@ void process_byte(byte input_byte) {
       break;
     case packet_byte_status:
       awaiting_byte = packet_byte_magic_1;
-      if (command == 0x2) drawing_print_data = true;
+      if (command == 0x2) {
+        drawing_print_data = true;
+      }
       //print_status(input_byte);
       return;
   }
@@ -158,7 +159,26 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(PIN_SERIAL_CLOCK), serial_clock_handler, CHANGE);
 }
 
+void handle_buttons(){
+    if(GO.JOY_Y.isAxisPressed() == 2){
+        if(y_scroll <= 0) return;
+        y_scroll--;
+        draw_data();
+    }
+    if(GO.JOY_Y.isAxisPressed() == 1){
+        y_scroll++;
+        draw_data();
+    }
+    if(GO.BtnB.isPressed() == 1){
+        GO.lcd.clear();
+        print_data_index = 0;
+    }
+}
+
 void loop() {
   // put your main code here, to run repeatedly:
+  GO.update();
   if(drawing_print_data) draw_data();
+  delay(100);
+  handle_buttons();
 }
