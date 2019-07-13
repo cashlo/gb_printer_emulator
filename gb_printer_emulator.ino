@@ -27,10 +27,16 @@ int checksum;
 int data_to_send;
 
 void print_byte(byte input_byte){
-      GO.lcd.setCursor(100,line*10);
-      GO.lcd.print(input_byte, HEX);
-      line++;
-  }
+  GO.lcd.setCursor(100,line*10);
+  GO.lcd.print(input_byte, HEX);
+  line++;
+}
+
+void print_string(String input_byte){
+  GO.lcd.setCursor(100,line*10);
+  GO.lcd.print(input_byte);
+  line++;
+}
 
 int draw_pos;
 uint32_t palette[] = {0xFFFF, 0xC618, 0x7BEF, 0x0000};
@@ -39,6 +45,7 @@ int print_data_index;
 bool drawing_print_data = false;
 
 int y_scroll;
+int display_scale = 2;
 
 void draw_data() {
   GO.lcd.clear();
@@ -56,7 +63,13 @@ void draw_data() {
         int x_tile_pos = j;
 
         uint32_t pixel_color = palette[(byte_1&1) + (byte_2&1)*2];
-        GO.lcd.drawRect((x_tile_pos+tile_col*8)*2, (y_tile_pos+tile_row*8)*2, 2, 2, pixel_color);
+        
+        GO.lcd.drawRect((x_tile_pos+tile_col*8)*display_scale,
+          (y_tile_pos+tile_row*8)*display_scale,
+          display_scale,
+          display_scale,
+          pixel_color);
+          
         byte_1 >>= 1;
         byte_2 >>= 1;
         j--;
@@ -152,11 +165,35 @@ void IRAM_ATTR serial_clock_handler(){
 } 
 void setup() {
   // put your setup code here, to run once:
-  GO.begin();
+  GO.begin(9600);
 
   pinMode(PIN_SERIAL_OUT, OUTPUT);
   digitalWrite(PIN_SERIAL_OUT, LOW);
   attachInterrupt(digitalPinToInterrupt(PIN_SERIAL_CLOCK), serial_clock_handler, CHANGE);
+}
+
+void printDirectory(File dir, int numTabs) {
+  while (true) {
+
+    File entry =  dir.openNextFile();
+    if (! entry) {
+      // no more files
+      break;
+    }
+    for (uint8_t i = 0; i < numTabs; i++) {
+      Serial.print('\t');
+    }
+    Serial.print(entry.name());
+    if (entry.isDirectory()) {
+      Serial.println("/");
+      printDirectory(entry, numTabs + 1);
+    } else {
+      // files have sizes, directories do not
+      Serial.print("\t\t");
+      Serial.println(entry.size(), DEC);
+    }
+    entry.close();
+  }
 }
 
 void handle_buttons(){
@@ -169,9 +206,36 @@ void handle_buttons(){
         y_scroll++;
         draw_data();
     }
+
+    if(GO.JOY_X.isAxisPressed() == 2){
+        if(display_scale <= 1) return;
+        display_scale--;
+        draw_data();
+    }
+    if(GO.JOY_X.isAxisPressed() == 1){
+        if(display_scale >= 2) return;
+        display_scale++;
+        draw_data();
+    }
+        
     if(GO.BtnB.isPressed() == 1){
         GO.lcd.clear();
         print_data_index = 0;
+        awaiting_byte = packet_byte_magic_1;
+    }
+
+    if(GO.BtnA.isPressed() == 1){
+      GO.lcd.clear();
+
+      Serial.print("Initializing SD card...");
+    
+      if (!SD.begin()) {
+        Serial.println("initialization failed!");
+      }
+      Serial.println("initialization done.");
+  
+      print_data_index = 0;
+      awaiting_byte = packet_byte_magic_1;
     }
 }
 
