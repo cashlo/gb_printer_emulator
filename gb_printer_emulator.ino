@@ -26,16 +26,14 @@ int data_length_left;
 int checksum;
 int data_to_send;
 
-void print_status(byte input_byte){
-      GO.lcd.setCursor(0,line*10);
-      String output;
-      output = output + " Command: " + command + " Compression: " + commpression + "Length: " + data_length_left + " Input: " + input_byte;
-      GO.lcd.print(output);
+void print_byte(byte input_byte){
+      GO.lcd.setCursor(100,line*10);
+      GO.lcd.print(input_byte, HEX);
       line++;
   }
 
 int draw_pos;
-uint32_t palette[] = {0x000000FF, 0x000000AF, 0x0000006F, 0x00000000};
+uint32_t palette[] = {0xFFFF, 0xC618, 0x7BEF, 0x0000};
 byte print_data[6400];
 int print_data_index;
 bool drawing_print_data = false;
@@ -53,11 +51,15 @@ void draw_data() {
     int j = 7;
     while ( j >= 0 ){
         int x_tile_pos = j;
+        //print_byte(byte_1);
+        //print_byte(byte_2);        
+        //byte color_index = (byte_1&1) + (byte_2&1)*2;
+        //print_byte(color_index);  
         
-        uint32_t pixel_color = palette[byte_1&1 + (byte_2&1)*2];
+        uint32_t pixel_color = palette[(byte_1&1) + (byte_2&1)*2];
+        GO.lcd.drawRect((x_tile_pos+tile_col*8)*2, (y_tile_pos+tile_row*8)*2, 2, 2, pixel_color);
         byte_1 >>= 1;
         byte_2 >>= 1;
-        GO.lcd.drawRect((x_tile_pos+tile_col*8)*2, (y_tile_pos+tile_row*8)*2, 2, 2, pixel_color);
         j--;
     }
     i += 2;
