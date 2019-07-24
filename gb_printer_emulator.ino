@@ -47,6 +47,39 @@ bool drawing_print_data = false;
 int y_scroll;
 int display_scale = 2;
 
+char ascii_palette[] = " :=@";
+char ascii_data[160][160];
+
+
+void draw_data_ascii() {
+  int i = 0;
+  while (i < print_data_index-1){
+    byte byte_1 = print_data[i];
+    byte byte_2 = print_data[i+1];
+    int tile_col = (i/2/8)%20;
+    int tile_row = i/(20*2*8)-y_scroll;
+
+    int y_tile_pos = i/2%8;
+    
+    int j = 7;
+    while ( j >= 0 ){
+        int x_tile_pos = j;
+
+        char pixel_color = ascii_palette[(byte_1&1) + (byte_2&1)*2];
+        ascii_data[y_tile_pos+tile_row*8][x_tile_pos+tile_col*8] = pixel_color;
+                  
+        byte_1 >>= 1;
+        byte_2 >>= 1;
+        j--;
+    }
+    i += 2;
+  }
+  drawing_print_data = false;
+  //print_data_index = 0;
+}
+
+
+
 void draw_data() {
   GO.lcd.clear();
   int i = 0;
@@ -172,30 +205,6 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(PIN_SERIAL_CLOCK), serial_clock_handler, CHANGE);
 }
 
-void printDirectory(File dir, int numTabs) {
-  while (true) {
-
-    File entry =  dir.openNextFile();
-    if (! entry) {
-      // no more files
-      break;
-    }
-    for (uint8_t i = 0; i < numTabs; i++) {
-      Serial.print('\t');
-    }
-    Serial.print(entry.name());
-    if (entry.isDirectory()) {
-      Serial.println("/");
-      printDirectory(entry, numTabs + 1);
-    } else {
-      // files have sizes, directories do not
-      Serial.print("\t\t");
-      Serial.println(entry.size(), DEC);
-    }
-    entry.close();
-  }
-}
-
 void handle_buttons(){
     if(GO.JOY_Y.isAxisPressed() == 2){
         if(y_scroll <= 0) return;
@@ -233,6 +242,34 @@ void handle_buttons(){
         Serial.println("initialization failed!");
       }
       Serial.println("initialization done.");
+      // write_to_SD();
+      File ascii_file = SD.open("/gb_print_ascii.txt", FILE_WRITE);
+      
+     if (ascii_file) {
+      Serial.print("Writing to gb_print_ascii.txt...\n");
+      draw_data_ascii();
+      
+      for(int i=0;i<4;i++){
+        Serial.print(ascii_palette[i]);
+      }
+      
+      for(int i=0;i<160;i++)
+      {
+        for(int j=0;j<160;j++)
+        {
+          ascii_file.printf("%c", ascii_data[i][j]);
+        }
+        ascii_file.print("\n");
+      }
+      
+      // close the file:
+      ascii_file.close();
+      Serial.println("done.");
+    } else {
+      // if the file didn't open, print an error:
+      Serial.println("error opening gb_print_ascii.txt");
+    }     
+        
   
       print_data_index = 0;
       awaiting_byte = packet_byte_magic_1;
